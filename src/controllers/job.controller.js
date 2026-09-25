@@ -111,6 +111,84 @@ export const getJobById = async (req, res) => {
   }
 };
 
+export const updateJob = async (req, res) => {
+  try {
+    if (req.user.role !== "recruiter") {
+      return res.status(403).json({
+        success: false,
+        message: "Only recruiters can update jobs"
+      });
+    }
+
+    const job = await Job.findById(req.params.id);
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: "Job not found"
+      });
+    }
+
+    if (
+      job.recruiter.toString() !==
+      req.user.userId
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to update this job"
+      });
+    }
+
+    const {
+      title,
+      description,
+      company,
+      location,
+      salary,
+      jobType,
+      experience,
+      skills
+    } = req.body;
+
+    if (
+      !title ||
+      !description ||
+      !company ||
+      !location ||
+      !salary ||
+      !jobType ||
+      !experience
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "All required fields are required"
+      });
+    }
+
+    job.title = title;
+    job.description = description;
+    job.company = company;
+    job.location = location;
+    job.salary = salary;
+    job.jobType = jobType;
+    job.experience = experience;
+    job.skills = skills || [];
+
+    await job.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Job updated successfully",
+      job
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 export const deleteJob = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);

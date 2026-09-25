@@ -5,7 +5,9 @@ import {
   getAllJobs,
   getJobById,
   deleteJob,
-  getMyJobs
+  getMyJobs,
+  updateJob
+
 } from "../controllers/job.controller.js";
 
 import { protect } from "../middleware/auth.middleware.js";
@@ -32,6 +34,12 @@ router.post(
   "/",
   protect,
   createJob
+);
+
+router.put(
+  "/:id",
+  protect,
+  updateJob
 );
 
 router.delete(

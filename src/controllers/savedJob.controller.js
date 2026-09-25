@@ -3,12 +3,19 @@ import Job from "../models/job.model.js";
 
 export const saveJob = async (req, res) => {
   try {
-    const { jobId } = req.params;
-
     if (req.user.role !== "jobseeker") {
       return res.status(403).json({
         success: false,
         message: "Only jobseekers can save jobs"
+      });
+    }
+
+    const { jobId } = req.body;
+
+    if (!jobId) {
+      return res.status(400).json({
+        success: false,
+        message: "Job ID is required"
       });
     }
 
@@ -21,15 +28,16 @@ export const saveJob = async (req, res) => {
       });
     }
 
-    const existingSavedJob = await SavedJob.findOne({
-      job: jobId,
-      user: req.user.userId
-    });
+    const existingSavedJob =
+      await SavedJob.findOne({
+        job: jobId,
+        user: req.user.userId
+      });
 
     if (existingSavedJob) {
       return res.status(409).json({
         success: false,
-        message: "Job already saved"
+        message: "Job is already saved"
       });
     }
 
@@ -53,14 +61,23 @@ export const saveJob = async (req, res) => {
 
 export const getSavedJobs = async (req, res) => {
   try {
+    if (req.user.role !== "jobseeker") {
+      return res.status(403).json({
+        success: false,
+        message: "Only jobseekers can access saved jobs"
+      });
+    }
+
     const savedJobs = await SavedJob.find({
       user: req.user.userId
     })
       .populate(
         "job",
-        "title company location salary jobType experience skills"
+        "title description company location salary jobType experience skills recruiter createdAt"
       )
-      .sort({ createdAt: -1 });
+      .sort({
+        createdAt: -1
+      });
 
     res.status(200).json({
       success: true,
@@ -77,12 +94,18 @@ export const getSavedJobs = async (req, res) => {
 
 export const removeSavedJob = async (req, res) => {
   try {
-    const { jobId } = req.params;
+    if (req.user.role !== "jobseeker") {
+      return res.status(403).json({
+        success: false,
+        message: "Only jobseekers can remove saved jobs"
+      });
+    }
 
-    const savedJob = await SavedJob.findOne({
-      job: jobId,
-      user: req.user.userId
-    });
+    const savedJob =
+      await SavedJob.findOneAndDelete({
+        job: req.params.jobId,
+        user: req.user.userId
+      });
 
     if (!savedJob) {
       return res.status(404).json({
@@ -90,8 +113,6 @@ export const removeSavedJob = async (req, res) => {
         message: "Saved job not found"
       });
     }
-
-    await SavedJob.findByIdAndDelete(savedJob._id);
 
     res.status(200).json({
       success: true,

@@ -3,19 +3,19 @@ import Job from "../models/job.model.js";
 
 export const applyForJob = async (req, res) => {
   try {
+    if (req.user.role !== "jobseeker") {
+      return res.status(403).json({
+        success: false,
+        message: "Only jobseekers can apply for jobs"
+      });
+    }
+
     const { jobId, coverLetter } = req.body;
 
     if (!jobId) {
       return res.status(400).json({
         success: false,
         message: "Job ID is required"
-      });
-    }
-
-    if (req.user.role !== "jobseeker") {
-      return res.status(403).json({
-        success: false,
-        message: "Only jobseekers can apply for jobs"
       });
     }
 
@@ -28,10 +28,11 @@ export const applyForJob = async (req, res) => {
       });
     }
 
-    const existingApplication = await Application.findOne({
-      job: jobId,
-      applicant: req.user.userId
-    });
+    const existingApplication =
+      await Application.findOne({
+        job: jobId,
+        applicant: req.user.userId
+      });
 
     if (existingApplication) {
       return res.status(409).json({
@@ -43,13 +44,24 @@ export const applyForJob = async (req, res) => {
     const application = await Application.create({
       job: jobId,
       applicant: req.user.userId,
-      coverLetter
+      coverLetter: coverLetter || ""
     });
+
+    const populatedApplication =
+      await Application.findById(application._id)
+        .populate(
+          "job",
+          "title company location salary jobType experience skills"
+        )
+        .populate(
+          "applicant",
+          "name email phone resume"
+        );
 
     res.status(201).json({
       success: true,
-      message: "Job application submitted successfully",
-      application
+      message: "Application submitted successfully",
+      application: populatedApplication
     });
   } catch (error) {
     res.status(500).json({
@@ -58,13 +70,26 @@ export const applyForJob = async (req, res) => {
     });
   }
 };
+
 export const getMyApplications = async (req, res) => {
   try {
+    if (req.user.role !== "jobseeker") {
+      return res.status(403).json({
+        success: false,
+        message: "Only jobseekers can access applications"
+      });
+    }
+
     const applications = await Application.find({
       applicant: req.user.userId
     })
-      .populate("job", "title company location salary jobType")
-      .sort({ createdAt: -1 });
+      .populate(
+        "job",
+        "title company location salary jobType experience skills"
+      )
+      .sort({
+        createdAt: -1
+      });
 
     res.status(200).json({
       success: true,
@@ -78,11 +103,17 @@ export const getMyApplications = async (req, res) => {
     });
   }
 };
+
 export const getJobApplications = async (req, res) => {
   try {
-    const { jobId } = req.params;
+    if (req.user.role !== "recruiter") {
+      return res.status(403).json({
+        success: false,
+        message: "Only recruiters can access applicants"
+      });
+    }
 
-    const job = await Job.findById(jobId);
+    const job = await Job.findById(req.params.jobId);
 
     if (!job) {
       return res.status(404).json({
@@ -91,19 +122,31 @@ export const getJobApplications = async (req, res) => {
       });
     }
 
-    if (job.recruiter.toString() !== String(req.user.userId)) {
+    if (
+      job.recruiter.toString() !==
+      req.user.userId
+    ) {
       return res.status(403).json({
         success: false,
-        message: "You can only view applications for your own jobs"
+        message: "You are not allowed to view these applications"
       });
     }
 
-    const applications = await Application.find({
-      job: jobId
-    })
-      .populate("applicant", "name email phone resume skills")
-      .populate("job", "title company location")
-      .sort({ createdAt: -1 });
+    const applications =
+      await Application.find({
+        job: req.params.jobId
+      })
+        .populate(
+          "applicant",
+          "name email phone resume skills"
+        )
+        .populate(
+          "job",
+          "title company location"
+        )
+        .sort({
+          createdAt: -1
+        });
 
     res.status(200).json({
       success: true,
@@ -117,9 +160,19 @@ export const getJobApplications = async (req, res) => {
     });
   }
 };
-export const updateApplicationStatus = async (req, res) => {
+
+export const updateApplicationStatus = async (
+  req,
+  res
+) => {
   try {
-    const { applicationId } = req.params;
+    if (req.user.role !== "recruiter") {
+      return res.status(403).json({
+        success: false,
+        message: "Only recruiters can update application status"
+      });
+    }
+
     const { status } = req.body;
 
     const allowedStatuses = [
@@ -136,8 +189,10 @@ export const updateApplicationStatus = async (req, res) => {
       });
     }
 
-    const application = await Application.findById(applicationId)
-      .populate("job");
+    const application =
+      await Application.findById(
+        req.params.id
+      ).populate("job");
 
     if (!application) {
       return res.status(404).json({
@@ -148,11 +203,11 @@ export const updateApplicationStatus = async (req, res) => {
 
     if (
       application.job.recruiter.toString() !==
-      String(req.user.userId)
+      req.user.userId
     ) {
       return res.status(403).json({
         success: false,
-        message: "You can only update applications for your own jobs"
+        message: "You are not allowed to update this application"
       });
     }
 
@@ -172,4 +227,3 @@ export const updateApplicationStatus = async (req, res) => {
     });
   }
 };
-
