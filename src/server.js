@@ -19,12 +19,18 @@ connectDB();
 
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://my-job-portal-rue9.vercel.app/"
+  "https://my-job-portal-rue9.vercel.app"
 ];
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     methods: [
       "GET",
